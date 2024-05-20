@@ -18,8 +18,8 @@ app.use(bodyParser.json());
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "adityakumargupta115@gmail.com",
-    pass: process.env.pass,
+    user: process.env.EMAIL,
+    pass: process.env.PASS,
   },
 });
 
@@ -157,20 +157,76 @@ app.post("/api/:id/like", async (req, res) => {
 app.post("/api/send-email", async (req, res) => {
   try {
     // Extract data from request body
-    const { email, sellerInfo } = req.body;
-    console.log(sellerInfo);
-    // Construct email message
-    const mailOptions = {
-      from: "adityakumargupta115@gmail.com",
-      to: email,
-      subject: "Seller Details",
-      text: `Seller name: ${sellerInfo.seller_name}, Seller phone: ${sellerInfo.seller_phone}
-        , Seller email: ${sellerInfo.seller_email}`,
+    const params = req.body;
+
+    // send this email message from seller to customer
+    let mailOptions = {
+      from: "The Idea project",
+      to: params.to_email,
+      subject: `Details of ${params.property_name} Property You Visited`,
+      text: `
+      Dear Sir/Madam,
+
+I hope this email finds you well.
+
+We are pleased to provide you with the details of the ${params.property_name} Property that you recently visited on our Rentify website.
+
+Seller Information:
+
+Name: ${params.seller_name}
+Phone: ${params.seller_contact}
+Email: ${params.seller_email}
+Should you require further information or wish to proceed with any inquiries regarding this property, we encourage you to reach out directly to the seller.
+
+Thank you for choosing Rentify for your property search needs.
+
+Best Regards,
+Rentify Team
+      `,
     };
 
-    nodemailer.sendMail(mailOptions, () => {
-      console.log("Email sent successfully");
+    transporter.sendMail(mailOptions, (err) => {
+      console.log("seller to customer", err);
     });
+
+    // send email to seller from rentify
+    const email = params.seller_email;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const { Fname, Lname, phone, email: userEmail } = user;
+    const cust_name = Fname + " " + Lname;
+    mailOptions = {
+      from: "The Idea project",
+      to: email,
+      subject: `Follow-up on ${params.property_name} Property Inquiry`,
+      text: `
+      Dear Sir/Madam,
+
+I hope this message finds you well.
+
+We are reaching out from Rentify to provide you with details regarding the ${params.property_name} Property that a potential customer recently visited on our website.
+
+Customer Information:
+
+Name: ${cust_name}
+Phone: ${phone}
+Email: ${email}
+We kindly request that you reach out to the customer for further assistance or clarification regarding their inquiry.
+
+Thank you for your attention to this matter.
+
+Warm regards,
+Rentify Team
+      `,
+    };
+
+    transporter.sendMail(mailOptions, (err) => {
+      console.log("seller to customer", err);
+    });
+
     // Send success response
     res.status(200).json({ message: "Email sent successfully" });
   } catch (error) {
